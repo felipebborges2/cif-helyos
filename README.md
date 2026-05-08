@@ -193,6 +193,6 @@ Distribuído sob a licença MIT. Veja [LICENSE](LICENSE) para mais informações
 
 <div align="center">
 
-Feito com ❤️ para o Colégio Helyos · Feira de Santana, BA
+Porto Alegre, RS · Feira de Santana, BA
 
 </div>
