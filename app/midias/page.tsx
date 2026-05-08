@@ -7,7 +7,7 @@ export default async function MidiasPage() {
   const media = await Media.find()
     .populate({ path: 'match', populate: { path: 'homeTeam awayTeam', select: 'name' } })
     .sort({ createdAt: -1 })
-    .lean() as any[]
+    .lean() as unknown as any[]
 
   const isVideo = (url: string) => /\.(mp4|mov|avi|webm|mkv)$/i.test(url)
 

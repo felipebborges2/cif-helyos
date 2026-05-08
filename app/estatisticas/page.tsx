@@ -49,7 +49,7 @@ async function getEstatisticas() {
     },
   ])
 
-  const allTeams = await Team.find().lean() as any[]
+  const allTeams = await Team.find().lean() as unknown as any[]
   const fairPlayMap = new Map(fairPlayAgg.map((f: any) => [f._id.toString(), f]))
   const fairPlay = allTeams
     .map(team => {

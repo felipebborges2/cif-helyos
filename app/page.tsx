@@ -43,7 +43,7 @@ async function getGroupRounds() {
   const matches = await Match.find({ phase: 'group' })
     .populate('homeTeam awayTeam')
     .sort({ round: 1, date: 1, matchNumber: 1 })
-    .lean() as any[]
+    .lean() as unknown as any[]
 
   const map = new Map<number, any[]>()
   for (const m of matches) {

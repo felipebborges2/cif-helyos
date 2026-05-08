@@ -8,7 +8,7 @@ import Image from 'next/image'
 export default async function TimesPage() {
   await connectDB()
 
-  const teams = await Team.find().sort({ name: 1 }).lean() as any[]
+  const teams = await Team.find().sort({ name: 1 }).lean() as unknown as any[]
 
   const playerCounts = await Player.aggregate([
     { $match: { isActive: true } },

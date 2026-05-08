@@ -11,8 +11,8 @@ export async function POST() {
   await connectDB()
 
   // Calcula classificação da fase de grupos
-  const teams = await Team.find().lean() as any[]
-  const groupMatches = await Match.find({ phase: 'group', status: 'finished' }).lean() as any[]
+  const teams = await Team.find().lean() as unknown as any[]
+  const groupMatches = await Match.find({ phase: 'group', status: 'finished' }).lean() as unknown as any[]
 
   const map = new Map<string, any>()
   for (const team of teams) {

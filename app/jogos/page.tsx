@@ -69,7 +69,7 @@ export default async function JogosPage() {
   const matches = await Match.find()
     .populate('homeTeam awayTeam')
     .sort({ round: 1, date: 1, matchNumber: 1 })
-    .lean() as any[]
+    .lean() as unknown as any[]
 
   // Separar grupos da fase de grupos e resto
   const groupMatches = matches.filter(m => m.phase === 'group')

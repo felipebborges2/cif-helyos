@@ -40,10 +40,10 @@ export default async function JogadorPage({ params }: { params: Promise<{ id: st
     MatchEvent.find({ player: id })
       .populate({ path: 'match', populate: { path: 'homeTeam awayTeam', select: 'name color logo' } })
       .sort({ createdAt: -1 })
-      .lean() as any[],
+      .lean() as unknown as any[],
     MatchEvent.find({ assistPlayer: id, type: 'goal' })
       .populate({ path: 'match', populate: { path: 'homeTeam awayTeam', select: 'name color logo' } })
-      .lean() as any[],
+      .lean() as unknown as any[],
   ])
 
   const goals   = events.filter((e: any) => e.type === 'goal').length
