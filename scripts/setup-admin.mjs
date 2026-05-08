@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 import bcrypt from 'bcryptjs'
 
-const MONGODB_URI = 'mongodb://localhost:27017/copa-helyos'
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/cif-helyos'
 const ADMIN_EMAIL = 'felipebborges_@outlook.com'
 
 await mongoose.connect(MONGODB_URI)
