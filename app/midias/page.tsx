@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 import { connectDB } from '@/lib/db'
 import Media from '@/models/Media'
 
