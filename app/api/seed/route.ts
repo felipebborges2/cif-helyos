@@ -2,23 +2,26 @@ import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import User from '@/models/User'
 
-// Rota para criar o primeiro usuário admin. Remover em produção.
 export async function POST(req: Request) {
-  const { secret } = await req.json()
+  const { secret, name, email, password } = await req.json()
   if (secret !== process.env.NEXTAUTH_SECRET) {
     return NextResponse.json({ error: 'Proibido' }, { status: 403 })
   }
 
+  const adminName = name ?? 'Administrador'
+  const adminEmail = email ?? 'admin@copahelyos.com'
+  const adminPassword = password ?? 'copahelyos2026'
+
   await connectDB()
-  const existing = await User.findOne({ email: 'admin@copahelyos.com' })
-  if (existing) return NextResponse.json({ message: 'Usuário já existe' })
+
+  await User.deleteOne({ role: 'admin' })
 
   const user = await User.create({
-    name: 'Administrador',
-    email: 'admin@copahelyos.com',
-    password: 'copahelyos2026',
+    name: adminName,
+    email: adminEmail,
+    password: adminPassword,
     role: 'admin',
   })
 
-  return NextResponse.json({ message: 'Criado', id: user._id })
+  return NextResponse.json({ message: 'Admin criado', id: user._id })
 }
