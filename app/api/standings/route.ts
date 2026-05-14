@@ -7,7 +7,7 @@ import type { IStandingRow } from '@/types'
 export async function GET() {
   await connectDB()
 
-  const teams = await Team.find()
+  const teams = await Team.find({ isActive: { $ne: false } })
   const matches = await Match.find({ phase: 'group', status: 'finished' }).populate('homeTeam awayTeam')
 
   const map = new Map<string, IStandingRow>()
