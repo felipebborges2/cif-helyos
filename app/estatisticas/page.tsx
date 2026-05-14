@@ -1,4 +1,4 @@
-export const revalidate = 30
+export const dynamic = 'force-dynamic'
 import { connectDB } from '@/lib/db'
 import MatchEvent from '@/models/MatchEvent'
 import Suspension from '@/models/Suspension'
@@ -49,7 +49,7 @@ async function getEstatisticas() {
     },
   ])
 
-  const allTeams = await Team.find().lean() as unknown as any[]
+  const allTeams = await Team.find({ isActive: { $ne: false } }).lean() as unknown as any[]
   const fairPlayMap = new Map(fairPlayAgg.map((f: any) => [f._id.toString(), f]))
   const fairPlay = allTeams
     .map(team => {
@@ -72,20 +72,27 @@ async function getEstatisticas() {
     ...yellowAgg.map((y: any) => y._id),
     ...savesAgg.map((s: any) => s._id),
   ]
-  const players = await Player.find({ _id: { $in: allPlayerIds } }).populate('team').lean()
-  const playerMap = new Map(players.map((p: any) => [p._id.toString(), p]))
+  const players = await Player.find({ _id: { $in: allPlayerIds } })
+    .populate({ path: 'team', match: { isActive: { $ne: false } } })
+    .lean() as any[]
+  const playerMap = new Map(
+    players.filter((p: any) => p.team !== null).map((p: any) => [p._id.toString(), p])
+  )
 
-  const gols = goalsAgg.map((g: any) => {
-    const pid = g._id.toString()
-    const player = playerMap.get(pid) as any
-    return {
-      player,
-      goals: g.goals,
-      assists: assistMap.get(pid) ?? 0,
-      isSuspended: suspendedIds.has(pid),
-      isWarned: !suspendedIds.has(pid) && (player?.yellowCardCount ?? 0) === 2,
-    }
-  })
+  const gols = goalsAgg
+    .map((g: any) => {
+      const pid = g._id.toString()
+      const player = playerMap.get(pid) as any
+      if (!player) return null
+      return {
+        player,
+        goals: g.goals,
+        assists: assistMap.get(pid) ?? 0,
+        isSuspended: suspendedIds.has(pid),
+        isWarned: !suspendedIds.has(pid) && (player?.yellowCardCount ?? 0) === 2,
+      }
+    })
+    .filter(Boolean) as any[]
 
   const cardPlayerIds = new Set([
     ...yellowAgg.map((y: any) => y._id.toString()),
@@ -94,6 +101,7 @@ async function getEstatisticas() {
   const cartoes = Array.from(cardPlayerIds)
     .map(pid => {
       const player = playerMap.get(pid) as any
+      if (!player) return null
       return {
         player,
         yellowCards: yellowMap.get(pid) ?? 0,
@@ -102,13 +110,17 @@ async function getEstatisticas() {
         isWarned: !suspendedIds.has(pid) && (player?.yellowCardCount ?? 0) === 2,
       }
     })
-    .sort((a, b) => b.yellowCards - a.yellowCards || b.redCards - a.redCards)
+    .filter(Boolean)
+    .sort((a: any, b: any) => b.yellowCards - a.yellowCards || b.redCards - a.redCards)
 
-  const defesas = savesAgg.map((s: any) => {
-    const pid = s._id.toString()
-    const player = playerMap.get(pid) as any
-    return { player, saves: s.saves }
-  })
+  const defesas = savesAgg
+    .map((s: any) => {
+      const pid = s._id.toString()
+      const player = playerMap.get(pid) as any
+      if (!player) return null
+      return { player, saves: s.saves }
+    })
+    .filter(Boolean) as any[]
 
   return { gols, cartoes, defesas, fairPlay }
 }

@@ -26,10 +26,13 @@ export async function GET() {
   const pendingSuspensions = await Suspension.find({ status: 'pending' }).select('player')
   const suspendedIds = new Set(pendingSuspensions.map((s: any) => s.player.toString()))
 
-  // Popular jogadores
+  // Popular jogadores — apenas de times ativos
   const playerIds = goalsAgg.map((g: any) => g._id)
-  const players = await Player.find({ _id: { $in: playerIds } }).populate('team')
-  const playerMap = new Map(players.map((p: any) => [p._id.toString(), p]))
+  const players = await Player.find({ _id: { $in: playerIds } })
+    .populate({ path: 'team', match: { isActive: { $ne: false } } })
+  const playerMap = new Map(
+    players.filter((p: any) => p.team !== null).map((p: any) => [p._id.toString(), p])
+  )
 
   // Cartões amarelos
   const yellowAgg = await MatchEvent.aggregate([
@@ -44,19 +47,21 @@ export async function GET() {
   ])
   const redMap = new Map(redAgg.map((r: any) => [r._id.toString(), r.redCards]))
 
-  const result = goalsAgg.map((g: any) => {
-    const pid = g._id.toString()
-    const player = playerMap.get(pid)
-    return {
-      player: player?.toObject() ?? { _id: pid, name: 'Desconhecido' },
-      goals: g.goals,
-      assists: assistMap.get(pid) ?? 0,
-      yellowCards: yellowMap.get(pid) ?? 0,
-      redCards: redMap.get(pid) ?? 0,
-      isSuspended: suspendedIds.has(pid),
-      isWarned: !suspendedIds.has(pid) && (player?.yellowCardCount ?? 0) === 2,
-    }
-  })
+  const result = goalsAgg
+    .filter((g: any) => playerMap.has(g._id.toString()))
+    .map((g: any) => {
+      const pid = g._id.toString()
+      const player = playerMap.get(pid)
+      return {
+        player: player?.toObject() ?? { _id: pid, name: 'Desconhecido' },
+        goals: g.goals,
+        assists: assistMap.get(pid) ?? 0,
+        yellowCards: yellowMap.get(pid) ?? 0,
+        redCards: redMap.get(pid) ?? 0,
+        isSuspended: suspendedIds.has(pid),
+        isWarned: !suspendedIds.has(pid) && (player?.yellowCardCount ?? 0) === 2,
+      }
+    })
 
   return NextResponse.json(result)
 }
