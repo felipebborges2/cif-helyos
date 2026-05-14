@@ -80,10 +80,10 @@ async function getEstatisticas() {
   )
 
   const gols = goalsAgg
+    .filter((g: any) => playerMap.has(g._id.toString()))
     .map((g: any) => {
       const pid = g._id.toString()
       const player = playerMap.get(pid) as any
-      if (!player) return null
       return {
         player,
         goals: g.goals,
@@ -92,16 +92,15 @@ async function getEstatisticas() {
         isWarned: !suspendedIds.has(pid) && (player?.yellowCardCount ?? 0) === 2,
       }
     })
-    .filter(Boolean) as any[]
 
   const cardPlayerIds = new Set([
     ...yellowAgg.map((y: any) => y._id.toString()),
     ...redAgg.map((r: any) => r._id.toString()),
   ])
   const cartoes = Array.from(cardPlayerIds)
+    .filter(pid => playerMap.has(pid))
     .map(pid => {
       const player = playerMap.get(pid) as any
-      if (!player) return null
       return {
         player,
         yellowCards: yellowMap.get(pid) ?? 0,
@@ -110,17 +109,15 @@ async function getEstatisticas() {
         isWarned: !suspendedIds.has(pid) && (player?.yellowCardCount ?? 0) === 2,
       }
     })
-    .filter(Boolean)
-    .sort((a: any, b: any) => b.yellowCards - a.yellowCards || b.redCards - a.redCards)
+    .sort((a, b) => b.yellowCards - a.yellowCards || b.redCards - a.redCards)
 
   const defesas = savesAgg
+    .filter((s: any) => playerMap.has(s._id.toString()))
     .map((s: any) => {
       const pid = s._id.toString()
       const player = playerMap.get(pid) as any
-      if (!player) return null
       return { player, saves: s.saves }
     })
-    .filter(Boolean) as any[]
 
   return { gols, cartoes, defesas, fairPlay }
 }
