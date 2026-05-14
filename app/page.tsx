@@ -1,4 +1,4 @@
-export const revalidate = 30
+export const dynamic = 'force-dynamic'
 import { connectDB } from '@/lib/db'
 import Match from '@/models/Match'
 import Team from '@/models/Team'
