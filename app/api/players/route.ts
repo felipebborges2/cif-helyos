@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import Player from '@/models/Player'
 import Suspension from '@/models/Suspension'
+import User from '@/models/User'
 
 export async function GET(req: Request) {
   await connectDB()
@@ -32,6 +33,18 @@ export async function POST(req: Request) {
 
   await connectDB()
   const body = await req.json()
+
+  const sessionUser = session.user as any
+  if (sessionUser.role === 'organizer') {
+    const user = await User.findOne({ email: sessionUser.email }).select('permissions teamId')
+    if (!user?.permissions?.managePlayers) {
+      return NextResponse.json({ error: 'Sem permissão para cadastrar jogadores' }, { status: 403 })
+    }
+    if (!user.teamId || body.team !== user.teamId.toString()) {
+      return NextResponse.json({ error: 'Você só pode cadastrar jogadores do seu time' }, { status: 403 })
+    }
+  }
+
   const player = await Player.create(body)
   const populated = await player.populate('team')
   return NextResponse.json(populated, { status: 201 })

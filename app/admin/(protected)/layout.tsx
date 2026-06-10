@@ -13,18 +13,24 @@ const adminLinks = [
   { href: '/admin/perfil', label: 'Perfil' },
 ]
 
+const organizerLinks = [
+  { href: '/admin/jogadores', label: 'Jogadores' },
+  { href: '/admin/perfil', label: 'Perfil' },
+]
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
 
   if (!session) redirect('/admin/login')
 
   const isAdmin = (session.user as any)?.role === 'admin'
+  const links = isAdmin ? adminLinks : organizerLinks
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
         <div className="flex items-center gap-4 flex-wrap">
-          {adminLinks.map(link => (
+          {links.map(link => (
             <Link
               key={link.href}
               href={link.href}

@@ -7,6 +7,7 @@ const UserSchema = new Schema({
   password: { type: String, required: true },
   role: { type: String, enum: ['admin', 'organizer'], default: 'organizer' },
   organizerNumber: { type: String },
+  teamId: { type: Schema.Types.ObjectId, ref: 'Team', default: null },
   permissions: {
     createTeams:        { type: Boolean, default: false },
     editTeams:          { type: Boolean, default: false },
