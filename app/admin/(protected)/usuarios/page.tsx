@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react'
 import Image from 'next/image'
 
 const PERMISSIONS = [
-  { key: 'managePlayers', label: 'Inscrever jogadores' },
+  { key: 'managePlayers',     label: 'Inscrever jogadores' },
   { key: 'createTeams',       label: 'Criar times' },
   { key: 'editTeams',         label: 'Editar times' },
   { key: 'createMatches',     label: 'Criar jogos' },
@@ -16,15 +16,13 @@ const PERMISSIONS = [
 ]
 
 type Team = { _id: string; name: string; shortName: string; color: string; logo?: string }
-
 type User = {
-  _id: string
-  name: string
-  email: string
-  role: string
-  organizerNumber?: string
-  teamId?: Team | null
-  permissions?: Record<string, boolean>
+  _id: string; name: string; email: string; role: string
+  teamId?: Team | null; permissions?: Record<string, boolean>
+}
+type Invite = {
+  _id: string; token: string; teamId?: Team | null
+  expiresAt: string; createdAt: string
 }
 
 export default function UsuariosPage() {
@@ -32,14 +30,11 @@ export default function UsuariosPage() {
   const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [teams, setTeams] = useState<Team[]>([])
+  const [invites, setInvites] = useState<Invite[]>([])
   const [saving, setSaving] = useState<string | null>(null)
-
-  // form state
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [teamId, setTeamId] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [inviteTeamId, setInviteTeamId] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [copiedToken, setCopiedToken] = useState<string | null>(null)
 
   const isAdmin = (session?.user as any)?.role === 'admin'
 
@@ -52,28 +47,35 @@ export default function UsuariosPage() {
     if (!isAdmin) return
     fetch('/api/users').then(r => r.json()).then(setUsers)
     fetch('/api/teams?all=true').then(r => r.json()).then(setTeams)
+    fetch('/api/invites').then(r => r.json()).then(setInvites)
   }, [isAdmin])
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
-    setCreating(true)
+  async function generateInvite() {
+    setGenerating(true)
     try {
-      const res = await fetch('/api/users', {
+      const res = await fetch('/api/invites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, teamId: teamId || null }),
+        body: JSON.stringify({ teamId: inviteTeamId || null }),
       })
-      if (!res.ok) {
-        const err = await res.json()
-        alert(err.error ?? 'Erro ao criar organizador')
-        return
-      }
-      const created = await res.json()
-      setUsers(prev => [...prev, created])
-      setName(''); setEmail(''); setPassword(''); setTeamId('')
+      const invite = await res.json()
+      setInvites(prev => [invite, ...prev])
+      setInviteTeamId('')
     } finally {
-      setCreating(false)
+      setGenerating(false)
     }
+  }
+
+  async function revokeInvite(id: string) {
+    await fetch(`/api/invites/${id}`, { method: 'DELETE' })
+    setInvites(prev => prev.filter(i => i._id !== id))
+  }
+
+  function copyLink(token: string) {
+    const url = `${window.location.origin}/registrar/${token}`
+    navigator.clipboard.writeText(url)
+    setCopiedToken(token)
+    setTimeout(() => setCopiedToken(null), 2000)
   }
 
   async function togglePermission(userId: string, key: string, current: boolean) {
@@ -90,12 +92,11 @@ export default function UsuariosPage() {
 
   async function changeTeam(userId: string, newTeamId: string) {
     setSaving(userId + 'team')
-    const res = await fetch(`/api/users/${userId}`, {
+    await fetch(`/api/users/${userId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ teamId: newTeamId || null }),
     })
-    const updated = await res.json()
     const team = teams.find(t => t._id === newTeamId) ?? null
     setUsers(prev => prev.map(u => u._id === userId ? { ...u, teamId: team } : u))
     setSaving(null)
@@ -115,51 +116,63 @@ export default function UsuariosPage() {
     <div className="space-y-8">
       <h1 className="text-xl font-bold text-white">Gerenciar Organizadores</h1>
 
-      {/* Criar organizador */}
+      {/* Gerar convite */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-slate-300">Novo organizador</h2>
-        <form onSubmit={handleCreate} className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Nome</label>
-            <input value={name} onChange={e => setName(e.target.value)} required
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-              placeholder="Nome completo" />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Email</label>
-            <input value={email} onChange={e => setEmail(e.target.value)} type="email" required
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-              placeholder="email@exemplo.com" />
-          </div>
-          <div>
-            <label className="block text-xs text-slate-400 mb-1.5">Senha</label>
-            <input value={password} onChange={e => setPassword(e.target.value)} type="password" required minLength={6}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-              placeholder="Mínimo 6 caracteres" />
-          </div>
-          <div>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-300">Convidar representante de time</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Gere um link de cadastro e envie ao representante. Válido por 7 dias.</p>
+        </div>
+        <div className="flex gap-3 items-end">
+          <div className="flex-1">
             <label className="block text-xs text-slate-400 mb-1.5">Time (opcional)</label>
-            <select value={teamId} onChange={e => setTeamId(e.target.value)}
+            <select value={inviteTeamId} onChange={e => setInviteTeamId(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
               <option value="">Sem time vinculado</option>
-              {teams.map(t => (
-                <option key={t._id} value={t._id}>{t.name}</option>
-              ))}
+              {teams.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
             </select>
           </div>
-          <div className="sm:col-span-2">
-            <button type="submit" disabled={creating}
-              className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors">
-              {creating ? 'Criando...' : 'Criar organizador'}
-            </button>
+          <button onClick={generateInvite} disabled={generating}
+            className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors whitespace-nowrap">
+            {generating ? 'Gerando...' : 'Gerar link'}
+          </button>
+        </div>
+
+        {/* Links pendentes */}
+        {invites.length > 0 && (
+          <div className="border-t border-slate-800 pt-4 space-y-2">
+            <p className="text-xs text-slate-500 uppercase tracking-wider">Links ativos</p>
+            {invites.map(invite => (
+              <div key={invite._id} className="flex items-center gap-3 bg-slate-800 rounded-lg px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-300 truncate font-mono">
+                    /registrar/{invite.token.slice(0, 16)}...
+                  </p>
+                  {invite.teamId && (
+                    <p className="text-xs text-slate-500 mt-0.5">{invite.teamId.name}</p>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 flex-shrink-0">
+                  expira {new Date(invite.expiresAt).toLocaleDateString('pt-BR')}
+                </p>
+                <button onClick={() => copyLink(invite.token)}
+                  className="text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-blue-500 text-slate-300 hover:text-blue-300 transition-colors flex-shrink-0">
+                  {copiedToken === invite.token ? 'Copiado!' : 'Copiar link'}
+                </button>
+                <button onClick={() => revokeInvite(invite._id)}
+                  className="text-xs text-red-500 hover:text-red-400 transition-colors flex-shrink-0">
+                  Revogar
+                </button>
+              </div>
+            ))}
           </div>
-        </form>
+        )}
       </div>
 
       {others.length === 0 && (
         <p className="text-slate-500 text-sm">Nenhum organizador cadastrado ainda.</p>
       )}
 
+      {/* Lista de organizadores */}
       <div className="space-y-4">
         {others.map(user => (
           <div key={user._id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
@@ -191,15 +204,11 @@ export default function UsuariosPage() {
                       : user.teamId.shortName}
                   </div>
                 )}
-                <select
-                  value={user.teamId?._id ?? ''}
-                  onChange={e => changeTeam(user._id, e.target.value)}
+                <select value={user.teamId?._id ?? ''} onChange={e => changeTeam(user._id, e.target.value)}
                   disabled={saving === user._id + 'team'}
                   className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 disabled:opacity-50">
                   <option value="">Sem time vinculado</option>
-                  {teams.map(t => (
-                    <option key={t._id} value={t._id}>{t.name}</option>
-                  ))}
+                  {teams.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                 </select>
               </div>
             </div>
